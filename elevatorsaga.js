@@ -2,60 +2,96 @@
     init: function(elevators, floors) {
         NIL = Number.MAX_SAFE_INTEGER;
 
-        minIndex = function(array) {
-            index = 0;
-            for (var i = 1; i < array.length; i++) {
-                if (array[i] < array[index]) {
-                    index = i;
+        getClosestFloorAbove = function(currentFloor) {
+            for (var i = currentFloor + 1; i < floors.length; i++) {
+                if (floors[i]._.utime != NIL || floors[i]._.dtime != nil) {
+                    return i;
                 }
             }
 
-            if (array[index] == NIL) {
-                return {index: -1, value: NIL};
+            return -1;
+        };
+
+        getClosestFloorBelow = function(currentFloor) {
+            for (var i = currentFloor - 1; i > -1; i--) {
+                if (floors[i]._.utime != NIL || floors[i]._.dtime != nil) {
+                    return i;
+                }
             }
 
-            return {index: index, value: array[i]};
+            return -1;
         };
-        
-        up_times = [];
-        down_times = [];
+
+        getClosestFloor = function(currentFloor) {
+            floorAbove = getClosestFloorAbove(currentFloor);
+            floorBelow = getClosestFloorBelow(currentFloor);
+
+            if (floorAbove == -1 && floorBelow == -1) {
+                return { direction: 0, floor: currentFloor };
+            }
+
+            if (floorAbove == -1 && floorBelow != -1) {
+                return { direction: -1, floor: floorBelow };
+            }
+
+            if (floorBelow == -1 && floorAbove != -1) {
+                return { direction: 1, floor: floorAbove };
+            }
+
+            aboveDelta = floorAbove - currentFloor;
+            belowDelta = currentFloor - floorBelow;
+
+            if (aboveDelta < belowDelta) {
+                return { direction: 1, floor: floorAbove };
+            }
+
+            return { direction: -1, floor: floorBelow };
+        };
+
+        updateDirectionIndicator = function(elevator) {
+            elevator.goingDownIndicator(false);
+            elevator.goingUpIndicator(false);
+
+            if (elevator._.direction == 1) {
+                elevator.goingUpIndicator(true);
+            }
+
+            if (elevator._.direction == -1) {
+                elevator.goingDownIndicator(true);
+            }
+        };
 
         _.each(floors, function(floor) {
-            up_times.push(NIL);
-            down_times.push(NIL);
+            floor._ = {};
+            floor._.utime = NIL;
+            floor._.dtime = NIL;
 
             floor.on('up_button_pressed', function() {
-                up_times[floor.floorNum()] = Date.now();
+                floor._.utime = Date.now();
             });
 
             floor.on('down_button_pressed', function() {
-                down_times[floor.floorNum()] = Date.now();
+                floor._.dtime = Date.now();
             });
         });
 
         _.each(elevators, function(elevator) {
+            elevator._ = {}
+            elevator._.direction = 0;
+
             elevator.on('idle', function() {
-                udata = minIndex(up_times);
-                ufloor = udata.index;
-                utime = udata.value;
+                if (elevator._.direction == 0) {
+                    closestFloorDto = getClosestFloor(elevator.currentFloor());
 
-                ddata = minIndex(down_times);
-                dfloor = ddata.index;
-                dtime = ddata.value;
+                    if (closestFloorDto.direction == 0) {
+                        return;
+                    }
 
-                floor = 0;
-                if (ufloor != -1 || dfloor != -1) {
-                    if (utime < dtime) {
-                        floor = ufloor;
-                        up_times[ufloor] = NIL;
-                    }
-                    else {
-                        floor = dfloor;
-                        down_times[dfloor] = NIL;
-                    }
+                    elevator._.direction = closestFloorDto.direction;
+                    updateDirectionIndicator(elevator);
+
+                    elevator.goToFloor(closestFloorDto.floor);
                 }
-
-                elevator.goToFloor(floor);
             });
         });
     },
