@@ -16,11 +16,11 @@
             });
         });
 
-        getClosestFloor = function(floors, currentFloorNumber) {
+        getClosestFloor = function(floors, currentFloor) {
             closestFloor = null;
 
             _.each(floors, function(floor) {
-                if (closestFloor == null || Math.abs(floor.floorNum() - currentFloorNumber) < Math.abs(closestFloor.floorNum() - currentFloorNumber)) {
+                if (closestFloor == null || Math.abs(floor.floorNum() - currentFloor.floorNum()) < Math.abs(closestFloor.floorNum() - currentFloor.floorNum())) {
                     closestFloor = floor;
                 }
             });
@@ -28,8 +28,22 @@
             return closestFloor;
         }
 
-        getFloorsBetween = function(currentFloor, targetFloor) {
+        getInterruptFloor = function(currentFloor, targetFloor, floorsPendingProcessing) {
+            if (targetFloor == null) {
+                return null;
+            }
 
+            if (currentFloor.floorNum() < targetFloor.floorNum()) {
+                selector = function(floor) { 
+                    return floor._.utime != NIL && currentFloor.floorNum() < floor.floorNum() && targetFloor.floorNum() > floor.floorNum(); 
+                };   
+            } else {
+                selector = function(floor) { 
+                    return floor._.dtime != NIL  && currentFloor.floorNum() > floor.floorNum() && targetFloor.floorNum() < floor.floorNum();
+                };
+            }
+
+            return getClosestFloor(_.filter(floorsPendingProcessing, selector), currentFloor);
         }
 
         _.each(elevators, function(elevator) {
@@ -38,15 +52,22 @@
             elevator.on('idle', function() {
                 console.log('BEGIN IDLE');
 
-                floor = getClosestFloor(_.map(elevator.getPressedFloors(), function(i) { return floors[i]; }), elevator.currentFloor());
+                currentFloor = floors[elevator.currentFloor()]
+                pressedFloors = _.map(elevator.getPressedFloors(), function(i) { return floors[i]; });
+                floorsPendingProcessing = _.filter(floors, function(floor) { return floor._.utime != NIL || floor._.dtime != NIL });
 
-                if (floor == null) {
-                    floorsPendingProcessing = _.filter(floors, function(floor) { return floor._.utime != NIL || floor._.dtime != NIL });
-                    floor = getClosestFloor(floorsPendingProcessing, elevator.currentFloor());;
+                floor = getClosestFloor(pressedFloors, currentFloor);
+
+                if (floor != null) {
+                    interrupFloor = getInterruptFloor(currentFloor, floor, floorsPendingProcessing);
+
+                    if (interrupFloor != null) {
+                        floor = interrupFloor;
+                    }
                 }
 
                 if (floor == null) {
-                    floor = floors[0];
+                    floor = getClosestFloor(floorsPendingProcessing, currentFloor);
                 }
 
                 if (floor != null) {
