@@ -9,10 +9,12 @@
 
             floor.on('up_button_pressed', function() {
                 floor._.utime = Date.now();
+                console.log('up');
             });
 
             floor.on('down_button_pressed', function() {
                 floor._.dtime = Date.now();
+                console.log('down');
             });
         });
 
@@ -26,56 +28,106 @@
             });
 
             return closestFloor;
-        }
+        };
 
-        getInterruptFloor = function(currentFloor, targetFloor, floorsPendingProcessing) {
+        updateElevatorDirection = function(elevator, targetFloor) {
             if (targetFloor == null) {
-                return null;
+                elevator.goingUpIndicator(true);
+                elevator.goingDownIndicator(true);
+                return;
             }
 
-            if (currentFloor.floorNum() < targetFloor.floorNum()) {
-                selector = function(floor) { 
-                    return floor._.utime != NIL && currentFloor.floorNum() < floor.floorNum() && targetFloor.floorNum() > floor.floorNum(); 
-                };   
-            } else {
-                selector = function(floor) { 
-                    return floor._.dtime != NIL  && currentFloor.floorNum() > floor.floorNum() && targetFloor.floorNum() < floor.floorNum();
-                };
+            if (targetFloor.floorNum() > elevator.currentFloor()) {
+                elevator.goingDownIndicator(false);
+                elevator.goingUpIndicator(true);
+                return;
             }
 
-            return getClosestFloor(_.filter(floorsPendingProcessing, selector), currentFloor);
-        }
+            if (targetFloor.floorNum() < elevator.currentFloor()) {
+                elevator.goingDownIndicator(true);
+                elevator.goingUpIndicator(false);
+                return;
+            }
+
+            elevator.goingUpIndicator(true);
+            elevator.goingDownIndicator(true);
+        };
 
         _.each(elevators, function(elevator) {
             elevator._ = {};
 
             elevator.on('idle', function() {
                 console.log('BEGIN IDLE');
-
-                currentFloor = floors[elevator.currentFloor()]
-                pressedFloors = _.map(elevator.getPressedFloors(), function(i) { return floors[i]; });
                 floorsPendingProcessing = _.filter(floors, function(floor) { return floor._.utime != NIL || floor._.dtime != NIL });
 
-                floor = getClosestFloor(pressedFloors, currentFloor);
+                console.log('Pending:', _.map(floorsPendingProcessing, function(f) { return f.floorNum(); }));
+
+                floor = getClosestFloor(floorsPendingProcessing, floors[elevator.currentFloor()]);
+
+                updateElevatorDirection(elevator, floor);
 
                 if (floor != null) {
-                    interrupFloor = getInterruptFloor(currentFloor, floor, floorsPendingProcessing);
-
-                    if (interrupFloor != null) {
-                        floor = interrupFloor;
-                    }
-                }
-
-                if (floor == null) {
-                    floor = getClosestFloor(floorsPendingProcessing, currentFloor);
-                }
-
-                if (floor != null) {
-                    floor._.utime = NIL;
-                    floor._.dtime = NIL;
                     elevator.goToFloor(floor.floorNum());
                 }
                 console.log('END IDLE');
+            });
+
+            elevator.on('passing_floor', function(floorNum, direction) {
+                if (elevator.loadFactor() > 0.9) {
+                    return;
+                }
+
+                if (direction == 'down') {
+                    if (floors[floorNum]._.dtime != NIL) {
+                        elevator.goToFloor(floorNum, true);
+                    }
+                } else {
+                    if (floors[floorNum]._.utime != NIL) {
+                        elevator.goToFloor(floorNum, true);
+                    }
+                }
+            });
+
+            elevator.on('floor_button_pressed', function(floorNum) {
+                updateElevatorDirection(elevator, floors[floorNum]);
+
+                if (_.contains(elevator.destinationQueue, floorNum)) {
+                    return;
+                }
+
+                elevator.destinationQueue.push(floorNum);
+
+                if (elevator.goingUpIndicator()) {
+                    sortFunction = function(floorNum) { return floorNum; };
+                } else {
+                    sortFunction = function(floorNum) { return 100 - floorNum; };
+                }
+
+                elevator.destinationQueue = _.sortBy(elevator.destinationQueue, sortFunction);
+                elevator.checkDestinationQueue();
+
+                if (elevator.goingUpIndicator()) {
+                    console.log('Going Up:', elevator.destinationQueue);
+                } else {
+                    console.log('Going Down:', elevator.destinationQueue);
+                }
+            });
+
+            elevator.on('stopped_at_floor', function(floorNum) {
+                floor = floors[floorNum];
+
+                if (elevator.goingUpIndicator()) {
+                    floor._.utime = NIL;
+                } else {
+                    floor._.dtime = NIL;
+                }
+
+                if (elevator.destinationQueue.length == 0) {
+                    updateElevatorDirection(elevator, null);
+
+                    floor._.utime = NIL;
+                    floor._.dtime = NIL;
+                }
             });
         });
     },
