@@ -127,23 +127,21 @@
             elevator.on('floor_button_pressed', function(floorNum) {
                 elevatorFloor = floors[elevator.currentFloor()];
 
-                // Before the person pressed a floor button, they either hit the up button or down button
-                // on the floor. Check which direction they are traveling by checking if they are going
-                // to a floor above or below of floor the elevator is currently at, and decrement that
-                // floor counts direction. Additionally, update the direction indicator for the elevator
-                // incase the elevator is currently sitting idle on the current floor.
+                // Check if the floor pressed is above or below the current floor the elevator is at.
+                // Zero the elevators floor count in that direction. Note that there is a possibility
+                // that the elevator was filled to capacity with people remaining on the floor and thus
+                // the count should be greater than zero; however, they will repress the arrow on the floor
+                // if they could not enter the elevator upon its departure. Additionally, update the direction 
+                // indicator for the elevator incase the elevator is currently sitting idle on the current
+                // floor. Finally, need to get a sort function to later update the destination queue.
                 if (floorNum > elevatorFloor.floorNum()) {
-                    elevatorFloor._.ucount--;
-                    if (elevatorFloor._.ucount < 0) { elevatorFloor._.ucount = 0; }
+                    elevatorFloor._.ucount = 0;
                     setDirectionIndicator(elevator, 'up');
                     sortFunction = function(floorNum) { return floorNum; };
                 } else {
-                    elevatorFloor._.dcount--;
-                    if (elevatorFloor._.dcount < 0) { elevatorFloor._.dcount = 0; }
+                    elevatorFloor._.dcount = 0;
                     setDirectionIndicator(elevator, 'down');
                     sortFunction = function(floorNum) { return 100 - floorNum; };
-                    console.log('down');
-                    if (elevatorFloor._.ucount < 0) { throw 'fail down'; }
                 }
 
                 // If the floor pressed is not already in the destination queue for the elevator, then
