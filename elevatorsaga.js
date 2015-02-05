@@ -57,23 +57,28 @@
             elevator._ = {};
 
             elevator.on('idle', function() {
-                console.log('BEGIN IDLE');
                 floorsPendingProcessing = _.filter(floors, function(floor) { return floor._.utime != NIL || floor._.dtime != NIL });
 
-                console.log('Pending:', _.map(floorsPendingProcessing, function(f) { return f.floorNum(); }));
-
                 floor = getClosestFloor(floorsPendingProcessing, floors[elevator.currentFloor()]);
+
+                // Hack to force idle
+                if (floor == null) {
+                    // floor = floors[0];
+                    elevator.stop();
+                }
 
                 updateElevatorDirection(elevator, floor);
 
                 if (floor != null) {
                     elevator.goToFloor(floor.floorNum());
+
+                    floor._.utime = NIL;
+                    floor._.dtime = NIL;
                 }
-                console.log('END IDLE');
             });
 
             elevator.on('passing_floor', function(floorNum, direction) {
-                if (elevator.loadFactor() > 0.9) {
+                if (elevator.loadFactor() > 0.7) {
                     return;
                 }
 

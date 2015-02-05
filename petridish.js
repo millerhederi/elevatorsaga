@@ -66,12 +66,14 @@
             elevator.on('idle', function() {
                 result = _.reduce(floors, idleOptimalReducerProvider(elevator), null);
 
-                setDirectionIndicator(elevator, 'none')
+                setDirectionIndicator(elevator, 'none') // TODO: should remove
 
                 if (result) {
                     goToFloor(elevator, result.floor, false);
                     setDirectionIndicator(elevator, result.direction);
                 } else {
+                    // Quick hack to force idle event to raise each cyle, not just the first cycle the
+                    // elevator became idle.
                     elevator.stop();
                 }
             });
@@ -113,7 +115,14 @@
                 }
             });
 
-            elevator.on('stopped_at_floor', function(floorNum) {});
+            elevator.on('stopped_at_floor', function(floorNum) {
+                // If there are no more floors to travel to, then the elevator has arrived at it's destination.
+                // Need to update the direction indicators to allow anybody who might appear on the
+                // elevator's current floor to get on.
+                if (elevator.destinationQueue.length == 0) {
+                    setDirectionIndicator(elevator, 'none');
+                }
+            });
 
             elevator.on('floor_button_pressed', function(floorNum) {
                 elevatorFloor = floors[elevator.currentFloor()];
