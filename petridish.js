@@ -7,6 +7,8 @@
             floor._.ucount = 0;
             floor._.dcount = 0;
 
+            floor._.elevatorsEnRoute = [];
+
             floor.on('up_button_pressed', function() {
                 floor._.ucount++;
             });
@@ -22,16 +24,62 @@
 
         isAnybodyWaiting = function(floor) { return floor._.ucount + floor._.dcount; };
 
+        getElevatorEnRouteCount = function(floor, direction) {
+            selector = function(elevator) {
+                return _.contains(elevator.destinationQueue, floor.floorNum())
+                    && (direction == 'up' ? elevator.goingUpIndicator() : elevator.goingDownIndicator());
+            };
+
+            return _.filter(elevators, selector).length;
+        };
+
+        getDirectionForIdleFloorSelection = function(floor) {
+            ucount = 0;
+            dcount = 0;
+
+            if (floor._.ucount && getElevatorEnRouteCount(floor, 'up') < 2) {
+                ucount = floor._.ucount;
+            }
+
+            if (floor._.dcount && getElevatorEnRouteCount(floor, 'down') < 2) {
+                dcount = floor._.dcount;
+            }
+
+            if (!ucount && !dcount) {
+                return null;
+            }
+
+            return ucount < dcount ? 'down' : 'up';
+        };
+
+        getFloorIdleSelection = function(elevator, floor) {
+            ucount = 0;
+            dcount = 0;
+
+            if (floor._.ucount && getElevatorEnRouteCount(floor, 'up') < 2) {
+                ucount = floor._.ucount;
+            }
+
+            if (floor._.dcount && getElevatorEnRouteCount(floor, 'down') < 2) {
+                dcount = floor._.dcount;
+            }
+
+            if (!ucount && !dcount) {
+                return null;
+            }
+
+            distance = Math.abs(elevator.currentFloor() - floor.floorNum())
+
+            return {
+                floor: floor,
+                direction: ucount < dcount ? 'down' : 'up',
+                distance: distance
+            };
+        }
+
         idleOptimalReducerProvider = function(elevator) {
             return function(current, floor) {
-                result = null;
-                if (floor._.ucount || floor._.dcount) {
-                    result = { 
-                        floor: floor, 
-                        direction: floor._.ucount > floor._.dcount ? 'up' : 'down',
-                        distance: Math.abs(elevator.currentFloor() - floor.floorNum())
-                    };
-                }
+                result = getFloorIdleSelection(elevator, floor);
 
                 if (!result) {
                     return current;
@@ -45,7 +93,9 @@
             };
         };
 
-        goToFloor = function(elevator, floor, override) { elevator.goToFloor(floor.floorNum(), override); };
+        goToFloor = function(elevator, floor, override) { 
+            elevator.goToFloor(floor.floorNum(), override);
+        };
 
         setDirectionIndicator = function(elevator, direction) {
             params = { up: true, down: true };
@@ -158,6 +208,6 @@
         // console.log('UCOUNT:', _.map(floors, function(floor) { return floor._.ucount; }));
         // console.log('DCOUNT:', _.map(floors, function(floor) { return floor._.dcount; }));
         // console.log('PRESSED:', queue);
-        // console.log('P2:', elevators[0].getPressedFloors());
+        console.log('P2:', elevators[0].getPressedFloors());
     }
 }
