@@ -56,11 +56,11 @@
             ucount = 0;
             dcount = 0;
 
-            if (floor._.ucount && getElevatorEnRouteCount(floor, 'up') < 2) {
+            if (floor._.ucount && getElevatorEnRouteCount(floor, 'up') < 1) {
                 ucount = floor._.ucount;
             }
 
-            if (floor._.dcount && getElevatorEnRouteCount(floor, 'down') < 2) {
+            if (floor._.dcount && getElevatorEnRouteCount(floor, 'down') < 1) {
                 dcount = floor._.dcount;
             }
 
@@ -205,9 +205,5 @@
         });
     },
     update: function(dt, elevators, floors) {
-        // console.log('UCOUNT:', _.map(floors, function(floor) { return floor._.ucount; }));
-        // console.log('DCOUNT:', _.map(floors, function(floor) { return floor._.dcount; }));
-        // console.log('PRESSED:', queue);
-        console.log('P2:', elevators[0].getPressedFloors());
     }
 }
